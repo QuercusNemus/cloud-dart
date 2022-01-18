@@ -1,19 +1,23 @@
 package main
 
 import (
-	"context"
+	"cloud-dart/user"
 	"fmt"
-	"github.com/aws/aws-lambda-go/lambda"
 )
 
-type MyEvent struct {
-	Name string `json:"name"`
-}
+var service *user.Service
 
-func HandleRequest(ctx context.Context, name MyEvent) (string, error) {
-	return fmt.Sprintf("Hello %s!", name.Name), nil
+func init() {
+	service = user.NewService("User", "eu-north-1")
 }
 
 func main() {
-	lambda.Start(HandleRequest)
+	users, err := service.GetAll()
+	if err != nil {
+		return
+	}
+
+	for _, user := range users {
+		fmt.Printf("%+v\n", user)
+	}
 }
