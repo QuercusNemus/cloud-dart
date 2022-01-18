@@ -9,11 +9,12 @@ import (
 )
 
 type User struct {
-	Age      int    `dynamo:"age"`
-	Email    string `dynamo:"email"`
-	Id       string `dynamo:"id"`
-	Name     string `dynamo:"name"`
-	NickName string `dynamo:"nick_name"`
+	Age      int      `dynamo:"age"`
+	Email    string   `dynamo:"email"`
+	Id       string   `dynamo:"id"`
+	Name     string   `dynamo:"name"`
+	NickName string   `dynamo:"nick_name"`
+	Matches  []string `dynamo:"matches"`
 }
 
 type Service struct {
@@ -39,6 +40,11 @@ func (s Service) Create(user User) (User, error) {
 
 	user.Id = CreateId()
 	return user, s.table.Put(user).Run()
+}
+
+func (s Service) AddMatch(user User, matchId string) (User, error) {
+	user.Matches = append(user.Matches, matchId)
+	return user, s.table.Update("id", user.Id).Set("matches", user.Matches).Value(&user)
 }
 
 func (s Service) GetAll() (users []User, err error) {
