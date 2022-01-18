@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/guregu/dynamo"
@@ -28,6 +29,14 @@ func NewService(tableName, region string) *Service {
 }
 
 func (s Service) Create(user User) (User, error) {
+	users, err := s.GetByEmail(user.Email)
+	if err != nil {
+		return User{}, err
+	}
+	if len(users) > 0 {
+		return user, errors.New("user with this users is already created")
+	}
+
 	user.Id = CreateId()
 	return user, s.table.Put(user).Run()
 }
@@ -40,10 +49,10 @@ func (s Service) GetAll() (users []User, err error) {
 	return users, nil
 }
 
-func (s Service) GetByEmail(email string) (user User, err error) {
-	err = s.table.Get("id", email).One(&user)
+func (s Service) GetByEmail(email string) (user []User, err error) {
+	err = s.table.Get("email", email).Index("email-index").All(&user)
 	if err != nil {
-		return User{}, err
+		return user, err
 	}
 	return user, nil
 }
