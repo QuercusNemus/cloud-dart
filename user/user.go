@@ -34,7 +34,7 @@ func (s Service) Create(user User) (User, error) {
 		return User{}, err
 	}
 	if len(users) > 0 {
-		return user, errors.New("user with this users is already created")
+		return user, errors.New("user with this email is already created")
 	}
 
 	user.Id = CreateId()
