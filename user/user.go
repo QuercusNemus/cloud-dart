@@ -9,12 +9,12 @@ import (
 )
 
 type User struct {
-	Age      int      `dynamo:"age"`
-	Email    string   `dynamo:"email"`
-	Id       string   `dynamo:"id"`
-	Name     string   `dynamo:"name"`
-	NickName string   `dynamo:"nick_name"`
-	Matches  []string `dynamo:"matches"`
+	Age      int      `json:"age"`
+	Email    string   `json:"email"`
+	Id       string   `json:"id"`
+	Name     string   `json:"name"`
+	NickName string   `json:"nick_name"`
+	Matches  []string `json:"matches"`
 }
 
 type Service struct {

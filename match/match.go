@@ -10,32 +10,32 @@ import (
 )
 
 type Match struct {
-	Id           string `dynamo:"id"`
-	SK           string `dynamo:"sk"`
-	NumberOfSets int    `dynamo:"number_of_sets"`
-	NumberOfLegs int    `dynamo:"number_of_legs"`
-	StartScore   int    `dynamo:"start_score"`
+	Id           string `json:"id"`
+	SK           string `json:"sk"`
+	NumberOfSets int    `json:"number_of_sets"`
+	NumberOfLegs int    `json:"number_of_legs"`
+	StartScore   int    `json:"start_score"`
 	CurrentSet   int    `json:"current_set"`
 	CurrentLeg   int    `json:"current_leg"`
-	Winner       string `dynamo:"winner"`
-	Time         int64  `dynamo:"time"`
+	Winner       string `json:"winner"`
+	Time         int64  `json:"time"`
 }
 
 type Set struct {
-	Id     string `dynamo:"id"`
-	SK     string `dynamo:"sk"`
-	Winner string `dynamo:"winner"`
-	Number int    `dynamo:"number"`
-	Time   int64  `dynamo:"time"`
+	Id     string `json:"id"`
+	SK     string `json:"sk"`
+	Winner string `json:"winner"`
+	Number int    `json:"number"`
+	Time   int64  `json:"time"`
 }
 
 type Leg struct {
-	Id      string      `dynamo:"id"`
-	SK      string      `dynamo:"sk"`
+	Id      string      `json:"id"`
+	SK      string      `json:"sk"`
 	Players []PlayerLeg `json:"players"`
-	Winner  string      `dynamo:"winner"`
-	Number  int         `dynamo:"number"`
-	Time    int64       `dynamo:"time"`
+	Winner  string      `json:"winner"`
+	Number  int         `json:"number"`
+	Time    int64       `json:"time"`
 }
 
 type PlayerLeg struct {
@@ -44,8 +44,8 @@ type PlayerLeg struct {
 }
 
 type Throw struct {
-	UserId string `dynamo:"user"`
-	Score  int    `dynamo:"score"`
+	UserId string `json:"user"`
+	Score  int    `json:"score"`
 }
 
 type ThrowIdentity struct {
