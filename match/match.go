@@ -10,32 +10,32 @@ import (
 )
 
 type Match struct {
-	Id           string `dynamo:"id"`
-	SK           string `dynamo:"sk"`
+	MatchId      string `dynamo:"match_id"`
+	SortKey      string `dynamo:"sort_key"`
+	Time         int64  `dynamo:"time"`
 	NumberOfSets int    `dynamo:"number_of_sets"`
 	NumberOfLegs int    `dynamo:"number_of_legs"`
 	StartScore   int    `dynamo:"start_score"`
 	CurrentSet   int    `dynamo:"current_set"`
 	CurrentLeg   int    `dynamo:"current_leg"`
 	Winner       string `dynamo:"winner"`
-	Time         int64  `dynamo:"time"`
 }
 
 type Set struct {
-	Id     string `dynamo:"id"`
-	SK     string `dynamo:"sk"`
-	Winner string `dynamo:"winner"`
-	Number int    `dynamo:"number"`
-	Time   int64  `dynamo:"time"`
+	MatchId string `dynamo:"match_id"`
+	SortKey string `dynamo:"sort_key"`
+	Time    int64  `dynamo:"time"`
+	Winner  string `dynamo:"winner"`
+	Number  int    `dynamo:"number"`
 }
 
 type Leg struct {
-	Id      string      `dynamo:"id"`
-	SK      string      `dynamo:"sk"`
+	MatchId string      `dynamo:"match_id"`
+	SortKey string      `dynamo:"sort_key"`
+	Time    int64       `dynamo:"time"`
 	Players []PlayerLeg `dynamo:"players"`
 	Winner  string      `dynamo:"winner"`
 	Number  int         `dynamo:"number"`
-	Time    int64       `dynamo:"time"`
 }
 
 type PlayerLeg struct {
@@ -44,8 +44,12 @@ type PlayerLeg struct {
 }
 
 type Throw struct {
-	UserId string `dynamo:"user"`
-	Score  int    `dynamo:"score"`
+	MatchId  string `dynamo:"match_id"`
+	SortKey  string `dynamo:"sort_key"`
+	Time     int64  `dynamo:"time"`
+	Number   int    `dynamo:"number"`
+	PlayerId string `dynamo:"player_id"`
+	Score    int    `dynamo:"score"`
 }
 
 type ThrowIdentity struct {
@@ -67,8 +71,8 @@ func NewService(tableName, region string) *Service {
 }
 
 func (s Service) Create(match Match, players []string) (Match, error) {
-	match.Id = CreateId()
-	match.SK = "INFO"
+	match.MatchId = CreateId()
+	match.SortKey = "INFO"
 	match.CurrentSet = 1
 	match.CurrentLeg = 1
 	match.Time = time.Now().Unix()
@@ -78,11 +82,11 @@ func (s Service) Create(match Match, players []string) (Match, error) {
 	}
 
 	set := Set{
-		Id:     match.Id,
-		SK:     "SET" + strconv.Itoa(match.CurrentSet) + "#",
-		Winner: "",
-		Number: 1,
-		Time:   match.Time,
+		MatchId: match.MatchId,
+		SortKey: "SET" + strconv.Itoa(match.CurrentSet),
+		Winner:  "",
+		Number:  1,
+		Time:    match.Time,
 	}
 	err = s.table.Put(set).Run()
 	if err != nil {
@@ -99,8 +103,8 @@ func (s Service) Create(match Match, players []string) (Match, error) {
 	}
 
 	leg := Leg{
-		Id:      match.Id,
-		SK:      set.SK + "LEG" + strconv.Itoa(match.CurrentLeg) + "#",
+		MatchId: match.MatchId,
+		SortKey: set.SortKey + "#LEG" + strconv.Itoa(match.CurrentLeg),
 		Winner:  "",
 		Players: playerSlice,
 		Number:  1,
@@ -114,10 +118,35 @@ func (s Service) Create(match Match, players []string) (Match, error) {
 	return match, nil
 }
 
-func (s Service) GetById(matchId string) (match Match, err error) {
-	err = s.table.Get("id", matchId).One(&match)
+func (s Service) AddThrow(match Match, throw Throw) (Throw, error) {
+	throw.MatchId = match.MatchId
+	throw.SortKey =
+		"SET" + strconv.Itoa(match.CurrentSet) + "#" +
+			"LEG" + strconv.Itoa(match.CurrentLeg) + "#" +
+			"THROW" + strconv.Itoa(throw.Number)
+	throw.Time = time.Now().Unix()
+
+	return throw, s.table.Put(throw).
+		If("attribute_not_exists(match_id) AND attribute_not_exists(sort_key)", throw.MatchId, throw.SortKey).
+		Run()
+}
+
+func (s Service) GetInfoById(matchId string) (match Match, err error) {
+	err = s.table.Get("match_id", matchId).
+		Range("sort_key", dynamo.Equal, "INFO").
+		One(&match)
+
 	if err != nil {
 		return Match{}, err
+	}
+	return
+}
+
+func (s Service) GetById(matchId string) (match []Match, err error) {
+	err = s.table.Get("match_id", matchId).All(&match)
+
+	if err != nil {
+		return []Match{}, err
 	}
 	return
 }
