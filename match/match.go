@@ -1,33 +1,46 @@
 package match
 
 import (
-	"errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/guregu/dynamo"
 	uuid "github.com/nu7hatch/gouuid"
+	"strconv"
+	"time"
 )
 
 type Match struct {
-	Id           string   `dynamo:"id"`
-	Players      []string `dynamo:"players"`
-	NumberOfSets int      `dynamo:"number_of_sets"`
-	Sets         []Set    `dynamo:"sets"`
-	NumberOfLegs int      `dynamo:"number_of_legs"`
-	Startscore   int      `dynamo:"startscore"`
-	Winner       string   `dynamo:"winner"`
+	Id           string `dynamo:"id"`
+	SK           string `dynamo:"sk"`
+	NumberOfSets int    `dynamo:"number_of_sets"`
+	NumberOfLegs int    `dynamo:"number_of_legs"`
+	StartScore   int    `dynamo:"start_score"`
+	CurrentSet   int    `json:"current_set"`
+	CurrentLeg   int    `json:"current_leg"`
+	Winner       string `dynamo:"winner"`
+	Time         int64  `dynamo:"time"`
 }
 
 type Set struct {
 	Id     string `dynamo:"id"`
-	Legs   []Leg  `dynamo:"legs"`
+	SK     string `dynamo:"sk"`
 	Winner string `dynamo:"winner"`
+	Number int    `dynamo:"number"`
+	Time   int64  `dynamo:"time"`
 }
 
 type Leg struct {
-	Id     string  `dynamo:"id"`
-	Throws []Throw `dynamo:"throws"`
-	Winner string  `dynamo:"winner"`
+	Id      string      `dynamo:"id"`
+	SK      string      `dynamo:"sk"`
+	Players []PlayerLeg `json:"players"`
+	Winner  string      `dynamo:"winner"`
+	Number  int         `dynamo:"number"`
+	Time    int64       `dynamo:"time"`
+}
+
+type PlayerLeg struct {
+	PlayerId string `json:"player_id"`
+	Score    int    `json:"score"`
 }
 
 type Throw struct {
@@ -53,17 +66,52 @@ func NewService(tableName, region string) *Service {
 	return &Service{table: table}
 }
 
-func (s Service) Create(match Match) (Match, error) {
+func (s Service) Create(match Match, players []string) (Match, error) {
 	match.Id = CreateId()
-	leg := Leg{
-		Id: CreateId(),
+	match.SK = "INFO"
+	match.CurrentSet = 1
+	match.CurrentLeg = 1
+	match.Time = time.Now().Unix()
+	err := s.table.Put(match).Run()
+	if err != nil {
+		return Match{}, err
 	}
+
 	set := Set{
-		Id:   CreateId(),
-		Legs: []Leg{leg},
+		Id:     match.Id,
+		SK:     "SET" + strconv.Itoa(match.CurrentSet) + "#",
+		Winner: "",
+		Number: 1,
+		Time:   match.Time,
 	}
-	match.Sets = append(match.Sets, set)
-	return match, s.table.Put(match).Run()
+	err = s.table.Put(set).Run()
+	if err != nil {
+		return Match{}, err
+	}
+
+	var playerSlice []PlayerLeg
+
+	for _, player := range players {
+		playerSlice = append(playerSlice, PlayerLeg{
+			PlayerId: player,
+			Score:    match.StartScore,
+		})
+	}
+
+	leg := Leg{
+		Id:      match.Id,
+		SK:      set.SK + "LEG" + strconv.Itoa(match.CurrentLeg) + "#",
+		Winner:  "",
+		Players: playerSlice,
+		Number:  1,
+		Time:    match.Time,
+	}
+	err = s.table.Put(leg).Run()
+	if err != nil {
+		return Match{}, err
+	}
+
+	return match, nil
 }
 
 func (s Service) GetById(matchId string) (match Match, err error) {
@@ -72,27 +120,6 @@ func (s Service) GetById(matchId string) (match Match, err error) {
 		return Match{}, err
 	}
 	return
-}
-
-func (s Service) AddThrow(throw Throw, identity ThrowIdentity) (Throw, error) {
-	m, err := s.GetById(identity.MatchId)
-	if err != nil {
-		return Throw{}, errors.New("unable to find given match by id")
-	}
-	for _, set := range m.Sets {
-		if set.Id == identity.SetId {
-			for _, leg := range set.Legs {
-				if leg.Id == identity.LegId {
-					leg.Throws = append(leg.Throws, throw)
-				} else {
-					return Throw{}, errors.New("unable to find given leg in this match")
-				}
-			}
-		} else {
-			return Throw{}, errors.New("unable to find given set in this match")
-		}
-	}
-	return throw, s.table.Update("id", m.Id).Set("match", m).Value(&m)
 }
 
 func CreateId() (id string) {
