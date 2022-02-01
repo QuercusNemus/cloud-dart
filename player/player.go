@@ -1,4 +1,4 @@
-package user
+package player
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	uuid "github.com/nu7hatch/gouuid"
 )
 
-type User struct {
+type Player struct {
 	Age      int      `dynamo:"age"`
 	Email    string   `dynamo:"email"`
 	Id       string   `dynamo:"id"`
@@ -29,25 +29,25 @@ func NewService(tableName, region string) *Service {
 	return &Service{table: table}
 }
 
-func (s Service) Create(user User) (User, error) {
-	users, err := s.GetByEmail(user.Email)
+func (s Service) Create(player Player) (Player, error) {
+	users, err := s.GetByEmail(player.Email)
 	if err != nil {
-		return User{}, err
+		return Player{}, err
 	}
 	if len(users) > 0 {
-		return user, errors.New("user with this email is already created")
+		return player, errors.New("player with this email is already created")
 	}
 
-	user.Id = CreateId()
-	return user, s.table.Put(user).Run()
+	player.Id = CreateId()
+	return player, s.table.Put(player).Run()
 }
 
-func (s Service) AddMatch(user User, matchId string) (User, error) {
+func (s Service) AddMatch(user Player, matchId string) (Player, error) {
 	user.Matches = append(user.Matches, matchId)
 	return user, s.table.Update("id", user.Id).Set("matches", user.Matches).Value(&user)
 }
 
-func (s Service) GetAll() (users []User, err error) {
+func (s Service) GetAll() (users []Player, err error) {
 	err = s.table.Scan().All(&users)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (s Service) GetAll() (users []User, err error) {
 	return users, nil
 }
 
-func (s Service) GetByEmail(email string) (user []User, err error) {
+func (s Service) GetByEmail(email string) (user []Player, err error) {
 	err = s.table.Get("email", email).Index("email-index").All(&user)
 	if err != nil {
 		return user, err

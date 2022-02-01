@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/aws/aws-cdk-go/awscdk/v2"
-	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
-	"github.com/aws/constructs-go/constructs/v10"
+	"github.com/aws/aws-cdk-go/awscdk"
+	"github.com/aws/aws-cdk-go/awscdk/awsdynamodb"
+	"github.com/aws/aws-cdk-go/awscdk/awslambda"
+	"github.com/aws/constructs-go/constructs/v3"
 	"github.com/aws/jsii-runtime-go"
 )
 
@@ -31,6 +32,31 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			BillingMode: "PAY_PER_REQUEST",
 			TableName:   jsii.String("Matches"),
 		})
+
+	table := awsdynamodb.NewTable(stack, jsii.String("Player"),
+		&awsdynamodb.TableProps{
+			PartitionKey: &awsdynamodb.Attribute{
+				Name: jsii.String("player_id"),
+				Type: "STRING",
+			},
+			BillingMode: "PAY_PER_REQUEST",
+			TableName:   jsii.String("Players"),
+		})
+
+	env := make(map[string]*string)
+	env["DYNAMODB_TABLE"] = table.TableName()
+	env["DYNAMODB_AWS_REGION"] = table.Env().Region
+
+	function := awslambda.NewFunction(stack, jsii.String("CreatePlayer"), &awslambda.FunctionProps{
+		Environment:  &env,
+		FunctionName: jsii.String("CreatePlayer"),
+		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+		Handler:      jsii.String("main"),
+		Runtime:      awslambda.Runtime_GO_1_X(),
+		Code:         awslambda.Code_FromAsset(jsii.String("../player/lambda/create"), nil),
+	})
+
+	table.GrantWriteData(function)
 
 	return stack
 }
