@@ -74,7 +74,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 func main() {
 	app := awscdk.NewApp(nil)
 
-	NewCdkStack(app, "CdkStack", &CdkStackProps{
+	NewCdkStack(app, "CloudDart-ServerStack", &CdkStackProps{
 		awscdk.StackProps{
 			Env: env(),
 		},
