@@ -30,11 +30,12 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 				Name: jsii.String("sort_key"),
 				Type: "STRING",
 			},
-			BillingMode: "PAY_PER_REQUEST",
-			TableName:   jsii.String("Matches"),
+			BillingMode:   "PAY_PER_REQUEST",
+			TableName:     jsii.String("Matches"),
+			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		})
 
-	table := awsdynamodb.NewTable(stack, jsii.String("Player"),
+	PlayersTable := awsdynamodb.NewTable(stack, jsii.String("Players"),
 		&awsdynamodb.TableProps{
 			PartitionKey: &awsdynamodb.Attribute{
 				Name: jsii.String("player_id"),
@@ -44,29 +45,28 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 				Name: jsii.String("email"),
 				Type: "STRING",
 			},
-			BillingMode: "PAY_PER_REQUEST",
-			TableName:   jsii.String("Players"),
+			BillingMode:   "PAY_PER_REQUEST",
+			TableName:     jsii.String("Players"),
+			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		})
-	table.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
+	PlayersTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
 		IndexName: jsii.String("email-index"),
 		PartitionKey: &awsdynamodb.Attribute{
 			Name: jsii.String("email"),
 			Type: "STRING",
 		},
+		ProjectionType: awsdynamodb.ProjectionType_ALL,
 	})
 
-	env := make(map[string]*string)
-	env["DYNAMODB_TABLE"] = table.TableName()
-	env["DYNAMODB_AWS_REGION"] = table.Env().Region
-
-	function := awslambdago.NewGoFunction(stack, jsii.String("CreatePlayer"), &awslambdago.GoFunctionProps{
+	createPlayerFunction := awslambdago.NewGoFunction(stack, jsii.String("CreatePlayer"), &awslambdago.GoFunctionProps{
 		Entry:        jsii.String("../player/lambda/create"),
 		FunctionName: jsii.String("CreatePlayer"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
 		Runtime:      awslambda.Runtime_GO_1_X(),
 	})
 
-	table.GrantReadWriteData(function)
+	//TODO: Need to change tis to read/writ and index access only.
+	PlayersTable.GrantFullAccess(createPlayerFunction)
 
 	return stack
 }
