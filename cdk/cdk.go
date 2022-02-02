@@ -4,6 +4,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk"
 	"github.com/aws/aws-cdk-go/awscdk/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/awslambdago"
 	"github.com/aws/constructs-go/constructs/v3"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -39,24 +40,33 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 				Name: jsii.String("player_id"),
 				Type: "STRING",
 			},
+			SortKey: &awsdynamodb.Attribute{
+				Name: jsii.String("email"),
+				Type: "STRING",
+			},
 			BillingMode: "PAY_PER_REQUEST",
 			TableName:   jsii.String("Players"),
 		})
+	table.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
+		IndexName: jsii.String("email-index"),
+		PartitionKey: &awsdynamodb.Attribute{
+			Name: jsii.String("email"),
+			Type: "STRING",
+		},
+	})
 
 	env := make(map[string]*string)
 	env["DYNAMODB_TABLE"] = table.TableName()
 	env["DYNAMODB_AWS_REGION"] = table.Env().Region
 
-	function := awslambda.NewFunction(stack, jsii.String("CreatePlayer"), &awslambda.FunctionProps{
-		Environment:  &env,
+	function := awslambdago.NewGoFunction(stack, jsii.String("CreatePlayer"), &awslambdago.GoFunctionProps{
+		Entry:        jsii.String("../player/lambda/create"),
 		FunctionName: jsii.String("CreatePlayer"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Handler:      jsii.String("main"),
 		Runtime:      awslambda.Runtime_GO_1_X(),
-		Code:         awslambda.Code_FromAsset(jsii.String("../player/lambda/create"), nil),
 	})
 
-	table.GrantWriteData(function)
+	table.GrantReadWriteData(function)
 
 	return stack
 }
