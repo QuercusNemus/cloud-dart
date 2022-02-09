@@ -20,7 +20,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 	}
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
-	awsdynamodb.NewTable(stack, jsii.String("Matches"),
+	matchTable := awsdynamodb.NewTable(stack, jsii.String("Matches"),
 		&awsdynamodb.TableProps{
 			PartitionKey: &awsdynamodb.Attribute{
 				Name: jsii.String("match_id"),
@@ -34,8 +34,15 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			TableName:     jsii.String("Matches"),
 			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		})
+	matchTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
+		IndexName: jsii.String("player_id"),
+		PartitionKey: &awsdynamodb.Attribute{
+			Name: jsii.String("player_id"),
+			Type: "STRING",
+		},
+	})
 
-	PlayersTable := awsdynamodb.NewTable(stack, jsii.String("Players"),
+	playersTable := awsdynamodb.NewTable(stack, jsii.String("Players"),
 		&awsdynamodb.TableProps{
 			PartitionKey: &awsdynamodb.Attribute{
 				Name: jsii.String("player_id"),
@@ -49,7 +56,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 			TableName:     jsii.String("Players"),
 			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		})
-	PlayersTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
+	playersTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
 		IndexName: jsii.String("email-index"),
 		PartitionKey: &awsdynamodb.Attribute{
 			Name: jsii.String("email"),
@@ -65,8 +72,23 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		Runtime:      awslambda.Runtime_GO_1_X(),
 	})
 
-	//TODO: Need to change tis to read/writ and index access only.
-	PlayersTable.GrantFullAccess(createPlayerFunction)
+	saveMatch := awslambdago.NewGoFunction(stack, jsii.String("SaveMatch"), &awslambdago.GoFunctionProps{
+		Entry:        jsii.String("../match/lambda/create"),
+		FunctionName: jsii.String("SaveMatch"),
+		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+		Runtime:      awslambda.Runtime_GO_1_X(),
+	})
+
+	getMatchByPlayerId := awslambdago.NewGoFunction(stack, jsii.String("GetMatchByPlayerId"), &awslambdago.GoFunctionProps{
+		Entry:        jsii.String("../match/lambda/get"),
+		FunctionName: jsii.String("GetMatchByPlayerId"),
+		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+		Runtime:      awslambda.Runtime_GO_1_X(),
+	})
+
+	playersTable.GrantFullAccess(createPlayerFunction)
+	matchTable.GrantWriteData(saveMatch)
+	matchTable.GrantReadData(getMatchByPlayerId)
 
 	return stack
 }
