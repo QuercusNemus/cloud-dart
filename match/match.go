@@ -64,7 +64,7 @@ func NewService(tableName, region string) *Service {
 }
 
 //Save takes a match and a slices of players and save to the match dynamo table.
-//If the game hase an id allready it will only save the match, other wise it will
+//If the game hase an id already it will only save the match, otherwise it will
 //save each player from the player slices to the table as a reference.
 func (s Service) Save(match Match, players []string) (Match, error) {
 	if match.MatchId == "" {
@@ -103,7 +103,7 @@ func (s Service) GetById(matchId string) (match []Match, err error) {
 	return
 }
 
-//GetByPlayerId takes a Player ID and return entries corrsponding to that index.
+//GetByPlayerId takes a Player ID and return entries corresponding to that index.
 func (s Service) GetByPlayerId(playerId string) (matches []MatchPlayer, err error) {
 	err = s.table.Get("player_id", playerId).Index("player_id").All(&matches)
 	if err != nil {
