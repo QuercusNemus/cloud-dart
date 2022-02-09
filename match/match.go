@@ -5,7 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/guregu/dynamo"
 	uuid "github.com/nu7hatch/gouuid"
-	"strconv"
 	"time"
 )
 
@@ -16,26 +15,22 @@ type Match struct {
 	NumberOfSets int    `dynamo:"number_of_sets"`
 	NumberOfLegs int    `dynamo:"number_of_legs"`
 	StartScore   int    `dynamo:"start_score"`
-	CurrentSet   int    `dynamo:"current_set"`
-	CurrentLeg   int    `dynamo:"current_leg"`
 	Winner       string `dynamo:"winner"`
+	Sets         []Set  `dynamo:"sets"`
 }
 
 type Set struct {
-	MatchId string `dynamo:"match_id"`
-	SortKey string `dynamo:"sort_key"`
-	Time    int64  `dynamo:"time"`
-	Winner  string `dynamo:"winner"`
-	Number  int    `dynamo:"number"`
+	Time   int64  `dynamo:"time"`
+	Winner string `dynamo:"winner"`
+	Legs   []Leg  `dynamo:"legs"`
 }
 
 type Leg struct {
-	MatchId string      `dynamo:"match_id"`
-	SortKey string      `dynamo:"sort_key"`
 	Time    int64       `dynamo:"time"`
 	Players []PlayerLeg `dynamo:"players"`
 	Winner  string      `dynamo:"winner"`
 	Number  int         `dynamo:"number"`
+	Throws  []Throw     `dynamo:"throws"`
 }
 
 type PlayerLeg struct {
@@ -44,18 +39,16 @@ type PlayerLeg struct {
 }
 
 type Throw struct {
-	MatchId  string `dynamo:"match_id"`
-	SortKey  string `dynamo:"sort_key"`
 	Time     int64  `dynamo:"time"`
 	Number   int    `dynamo:"number"`
 	PlayerId string `dynamo:"player_id"`
 	Score    int    `dynamo:"score"`
 }
 
-type ThrowIdentity struct {
-	MatchId string
-	SetId   string
-	LegId   string
+type MatchPlayer struct {
+	MatchId  string `dynamo:"match_id"`
+	SortKey  string `dynamo:"sort_key"`
+	PlayerId string `dynamo:"player_id"`
 }
 
 type Service struct {
@@ -70,47 +63,26 @@ func NewService(tableName, region string) *Service {
 	return &Service{table: table}
 }
 
-func (s Service) Create(match Match, players []string) (Match, error) {
-	match.MatchId = CreateId()
-	match.SortKey = "INFO"
-	match.CurrentSet = 1
-	match.CurrentLeg = 1
-	match.Time = time.Now().Unix()
+func (s Service) Save(match Match, players []string) (Match, error) {
+	if match.MatchId == "" {
+		match.MatchId = CreateId()
+		match.SortKey = "MATCH"
+		match.Time = time.Now().Unix()
+
+		for _, player := range players {
+			matchPlayer := MatchPlayer{
+				MatchId:  match.MatchId,
+				SortKey:  "PLAYER#" + player,
+				PlayerId: player,
+			}
+			err := s.table.Put(matchPlayer).Run()
+			if err != nil {
+				return Match{}, err
+			}
+		}
+	}
+
 	err := s.table.Put(match).Run()
-	if err != nil {
-		return Match{}, err
-	}
-
-	set := Set{
-		MatchId: match.MatchId,
-		SortKey: "SET" + strconv.Itoa(match.CurrentSet),
-		Winner:  "",
-		Number:  1,
-		Time:    match.Time,
-	}
-	err = s.table.Put(set).Run()
-	if err != nil {
-		return Match{}, err
-	}
-
-	var playerSlice []PlayerLeg
-
-	for _, player := range players {
-		playerSlice = append(playerSlice, PlayerLeg{
-			PlayerId: player,
-			Score:    match.StartScore,
-		})
-	}
-
-	leg := Leg{
-		MatchId: match.MatchId,
-		SortKey: set.SortKey + "#LEG" + strconv.Itoa(match.CurrentLeg),
-		Winner:  "",
-		Players: playerSlice,
-		Number:  1,
-		Time:    match.Time,
-	}
-	err = s.table.Put(leg).Run()
 	if err != nil {
 		return Match{}, err
 	}
@@ -118,35 +90,19 @@ func (s Service) Create(match Match, players []string) (Match, error) {
 	return match, nil
 }
 
-func (s Service) AddThrow(match Match, throw Throw) (Throw, error) {
-	throw.MatchId = match.MatchId
-	throw.SortKey =
-		"SET" + strconv.Itoa(match.CurrentSet) + "#" +
-			"LEG" + strconv.Itoa(match.CurrentLeg) + "#" +
-			"THROW" + strconv.Itoa(throw.Number)
-	throw.Time = time.Now().Unix()
-
-	return throw, s.table.Put(throw).
-		If("attribute_not_exists(match_id) AND attribute_not_exists(sort_key)", throw.MatchId, throw.SortKey).
-		Run()
-}
-
-func (s Service) GetInfoById(matchId string) (match Match, err error) {
-	err = s.table.Get("match_id", matchId).
-		Range("sort_key", dynamo.Equal, "INFO").
-		One(&match)
-
-	if err != nil {
-		return Match{}, err
-	}
-	return
-}
-
 func (s Service) GetById(matchId string) (match []Match, err error) {
 	err = s.table.Get("match_id", matchId).All(&match)
 
 	if err != nil {
 		return []Match{}, err
+	}
+	return
+}
+
+func (s Service) GetByPlayerId(playerId string) (matches []MatchPlayer, err error) {
+	err = s.table.Get("player_id", playerId).Index("player_id").All(&matches)
+	if err != nil {
+		return nil, err
 	}
 	return
 }
