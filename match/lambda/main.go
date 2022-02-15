@@ -29,10 +29,14 @@ func init() {
 	matchService = match.NewService(tableName, region)
 }
 
+type MatchInput struct {
+	ContentType string      `json:"ContentType"`
+	Match       match.Match `json:"Match"`
+	Players     []string    `json:"Players"`
+}
+
 type Input struct {
-	ContentType string
-	Match       match.Match
-	Players     []string
+	Input MatchInput `json:"input"`
 }
 
 func handler(ctx context.Context, input Input) (match.Match, error) {
@@ -46,7 +50,7 @@ func handler(ctx context.Context, input Input) (match.Match, error) {
 	case ContentTypeDelete:
 		return matchService.Delete(input.Match)
 	default:
-		err = fmt.Errorf("unable to recognise content-type: %v", input.ContentType)
+		err = fmt.Errorf("unable to recognise content-type: %v", input.Input.ContentType)
 	}
 
 	return match.Match{}, err

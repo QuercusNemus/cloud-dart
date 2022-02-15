@@ -104,14 +104,21 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		Schema: awsappsync.Schema_FromAsset(jsii.String("../graphql/schema.graphql")),
 	})
 
-	matchDS := graphqlApi.AddLambdaDataSource(jsii.String("MatchFunctions"), matchFunction, &awsappsync.DataSourceOptions{
-		Description: jsii.String("Functions for Matches"),
-		Name:        jsii.String("MatchFunctions"),
+	matchDS := awsappsync.NewLambdaDataSource(stack, jsii.String("MatchFunctions"), &awsappsync.LambdaDataSourceProps{
+		Api:            graphqlApi,
+		Name:           jsii.String("MatchFunctions"),
+		LambdaFunction: matchFunction,
 	})
 
 	matchDS.CreateResolver(&awsappsync.BaseResolverProps{
 		FieldName: jsii.String("matches"),
 		TypeName:  jsii.String("Query"),
+		RequestMappingTemplate: awsappsync.MappingTemplate_FromString(
+			jsii.String("{\n                    " +
+				"\"version\": \"2018-05-29\",\n" +
+				"\"operation\": \"Invoke\",\n" +
+				"\"payload\": $util.toJson($context.arguments)\n" +
+				"}")),
 	})
 
 	return stack

@@ -8,7 +8,7 @@ type Query {
 
 input MatchInput {
     ContentType: ContentType!
-    Players: [String]!
+    Players: [String]
     Match: MatchIn!
 }
 
@@ -56,14 +56,14 @@ input ThrowIn {
 }
 
 type Match {
-    matchId: String
-    sortKey: String
-    time: Int
-    numberOfSets: Int
-    numberOfLegs: Int
-    startScore: Int
-    winner: String
-    sets: [Set]
+    MatchId: String
+    SortKey: String
+    Time: Int
+    NumberOfSets: Int
+    NumberOfLegs: Int
+    StartScore: Int
+    Winner: String
+    Sets: [Set]
 }
 
 type Set {
