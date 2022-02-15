@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/aws/aws-cdk-go/awscdk"
+	"github.com/aws/aws-cdk-go/awscdk/awsappsync"
 	"github.com/aws/aws-cdk-go/awscdk/awsdynamodb"
 	"github.com/aws/aws-cdk-go/awscdk/awslambda"
 	"github.com/aws/aws-cdk-go/awscdk/awslambdago"
+	"github.com/aws/aws-cdk-go/awscdk/awslogs"
 	"github.com/aws/constructs-go/constructs/v3"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -69,26 +71,48 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		Entry:        jsii.String("../player/lambda/create"),
 		FunctionName: jsii.String("CreatePlayer"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Runtime:      awslambda.Runtime_GO_1_X(),
+		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
+		LogRetention: awslogs.RetentionDays_ONE_MONTH,
 	})
 
-	saveMatch := awslambdago.NewGoFunction(stack, jsii.String("SaveMatch"), &awslambdago.GoFunctionProps{
-		Entry:        jsii.String("../match/lambda/create"),
-		FunctionName: jsii.String("SaveMatch"),
+	matchFunction := awslambdago.NewGoFunction(stack, jsii.String("match"), &awslambdago.GoFunctionProps{
+		Entry:        jsii.String("../match/lambda"),
+		FunctionName: jsii.String("Match"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Runtime:      awslambda.Runtime_GO_1_X(),
+		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
+		LogRetention: awslogs.RetentionDays_ONE_MONTH,
+		Environment: &map[string]*string{
+			"DYNAMODB_AWS_REGION": matchTable.Env().Region,
+			"DYNAMODB_TABLE":      matchTable.TableName(),
+		},
 	})
 
 	getMatchByPlayerId := awslambdago.NewGoFunction(stack, jsii.String("GetMatchByPlayerId"), &awslambdago.GoFunctionProps{
 		Entry:        jsii.String("../match/lambda/get"),
 		FunctionName: jsii.String("GetMatchByPlayerId"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Runtime:      awslambda.Runtime_GO_1_X(),
+		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
+		LogRetention: awslogs.RetentionDays_ONE_MONTH,
 	})
 
 	playersTable.GrantFullAccess(createPlayerFunction)
-	matchTable.GrantWriteData(saveMatch)
+	matchTable.GrantFullAccess(matchFunction)
 	matchTable.GrantReadData(getMatchByPlayerId)
+
+	graphqlApi := awsappsync.NewGraphqlApi(stack, jsii.String("CloudDart-API"), &awsappsync.GraphqlApiProps{
+		Name:   jsii.String("CloudDart-API"),
+		Schema: awsappsync.Schema_FromAsset(jsii.String("../graphql/schema.graphql")),
+	})
+
+	matchDS := graphqlApi.AddLambdaDataSource(jsii.String("MatchFunctions"), matchFunction, &awsappsync.DataSourceOptions{
+		Description: jsii.String("Functions for Matches"),
+		Name:        jsii.String("MatchFunctions"),
+	})
+
+	matchDS.CreateResolver(&awsappsync.BaseResolverProps{
+		FieldName: jsii.String("matches"),
+		TypeName:  jsii.String("Query"),
+	})
 
 	return stack
 }

@@ -15,13 +15,15 @@ func init() {
 }
 
 func main() {
-	users, err := userService.GetAll()
+	m := match.Match{
+		MatchId: "49d34bb7-862a-4e46-5b3d-3664049d7778",
+		SortKey: "MATCH",
+	}
+	get, err := matchService.Delete(m)
 	if err != nil {
+		panic(err)
 		return
 	}
 
-	for _, user := range users {
-		fmt.Printf("%+v\n", user)
-	}
-
+	fmt.Println(get)
 }

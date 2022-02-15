@@ -27,9 +27,9 @@ type Set struct {
 
 type Leg struct {
 	Time    int64       `dynamo:"time"`
-	Players []PlayerLeg `dynamo:"players"`
 	Winner  string      `dynamo:"winner"`
 	Number  int         `dynamo:"number"`
+	Players []PlayerLeg `dynamo:"players"`
 	Throws  []Throw     `dynamo:"throws"`
 }
 
@@ -93,14 +93,28 @@ func (s Service) Save(match Match, players []string) (Match, error) {
 	return match, nil
 }
 
-//GetById takes a Match ID and returns all entries in the table corresponding to that ID.
-func (s Service) GetById(matchId string) (match []Match, err error) {
-	err = s.table.Get("match_id", matchId).All(&match)
+//Get takes a Match ID and returns all entries in the table corresponding to that ID.
+func (s Service) Get(match Match) (Match, error) {
+	err := s.table.Get("match_id", match.MatchId).
+		Range("sort_key", dynamo.Equal, match.SortKey).
+		One(&match)
 
 	if err != nil {
-		return []Match{}, err
+		return Match{}, err
 	}
-	return
+	return match, nil
+}
+
+//Delete will delete given match from the database.
+func (s Service) Delete(match Match) (Match, error) {
+	err := s.table.Delete("match_id", match.MatchId).
+		Range("sort_key", match.SortKey).
+		Run()
+	if err != nil {
+		return Match{}, err
+	}
+
+	return match, nil
 }
 
 //GetByPlayerId takes a Player ID and return entries corresponding to that index.

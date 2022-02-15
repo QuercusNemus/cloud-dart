@@ -1,0 +1,93 @@
+schema {
+    query: Query
+}
+
+type Query {
+    matches(input: MatchInput): Match
+}
+
+input MatchInput {
+    ContentType: ContentType!
+    Players: [String]!
+    Match: MatchIn!
+}
+
+enum ContentType {
+    CREATE
+    GET
+    DELETE
+}
+
+input MatchIn {
+    matchId: String
+    sortKey: String
+    time: Int
+    numberOfSets: Int
+    numberOfLegs: Int
+    startScore: Int
+    winner: String
+    sets: [SetIn]
+}
+
+input SetIn {
+    time: Int
+    winner: String
+    legs: [LegIn]
+}
+
+input LegIn {
+    time: Int
+    winner: String
+    number: Int
+    players: [PlayerLegIn]
+    throws: [ThrowIn]
+}
+
+input PlayerLegIn {
+    playerId: String
+    score: Int
+}
+
+input ThrowIn {
+    time: Int
+    number: Int
+    playerId: String
+    score: Int
+}
+
+type Match {
+    matchId: String
+    sortKey: String
+    time: Int
+    numberOfSets: Int
+    numberOfLegs: Int
+    startScore: Int
+    winner: String
+    sets: [Set]
+}
+
+type Set {
+    time: Int
+    winner: String
+    legs: [Leg]
+}
+
+type Leg {
+    time: Int
+    winner: String
+    number: Int
+    players: [PlayerLeg]
+    throws: [Throw]
+}
+
+type PlayerLeg {
+    playerId: String
+    score: Int
+}
+
+type Throw {
+    time: Int
+    number: Int
+    playerId: String
+    score: Int
+}
