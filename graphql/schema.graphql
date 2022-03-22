@@ -3,11 +3,19 @@ schema {
 }
 
 type Query {
-    matches(input: MatchInput): Match
+    saveMatch(input: MatchInput): Match
+    get(matchId: String): Match
+    createPlayer(player: Player): Boolean
+}
+
+input Player {
+    age: Int!
+    email: String!
+    name: String!
+    nick_name: String
 }
 
 input MatchInput {
-    ContentType: ContentType!
     Players: [String]
     Match: MatchIn!
 }

@@ -75,9 +75,9 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		LogRetention: awslogs.RetentionDays_ONE_MONTH,
 	})
 
-	matchFunction := awslambdago.NewGoFunction(stack, jsii.String("match"), &awslambdago.GoFunctionProps{
-		Entry:        jsii.String("../match/lambda"),
-		FunctionName: jsii.String("Match"),
+	saveMatchFunction := awslambdago.NewGoFunction(stack, jsii.String("SaveMatch"), &awslambdago.GoFunctionProps{
+		Entry:        jsii.String("../match/lambda/save"),
+		FunctionName: jsii.String("SaveMatch"),
 		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
 		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
 		LogRetention: awslogs.RetentionDays_ONE_MONTH,
@@ -87,38 +87,34 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 		},
 	})
 
-	getMatchByPlayerId := awslambdago.NewGoFunction(stack, jsii.String("GetMatchByPlayerId"), &awslambdago.GoFunctionProps{
-		Entry:        jsii.String("../match/lambda/get"),
-		FunctionName: jsii.String("GetMatchByPlayerId"),
-		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
-		LogRetention: awslogs.RetentionDays_ONE_MONTH,
-	})
-
 	playersTable.GrantFullAccess(createPlayerFunction)
-	matchTable.GrantFullAccess(matchFunction)
-	matchTable.GrantReadData(getMatchByPlayerId)
+	matchTable.GrantFullAccess(saveMatchFunction)
 
 	graphqlApi := awsappsync.NewGraphqlApi(stack, jsii.String("CloudDart-API"), &awsappsync.GraphqlApiProps{
 		Name:   jsii.String("CloudDart-API"),
 		Schema: awsappsync.Schema_FromAsset(jsii.String("../graphql/schema.graphql")),
 	})
 
-	matchDS := awsappsync.NewLambdaDataSource(stack, jsii.String("MatchFunctions"), &awsappsync.LambdaDataSourceProps{
+	matchDS := awsappsync.NewLambdaDataSource(stack, jsii.String("SaveMatchFunctions"), &awsappsync.LambdaDataSourceProps{
 		Api:            graphqlApi,
-		Name:           jsii.String("MatchFunctions"),
-		LambdaFunction: matchFunction,
+		Name:           jsii.String("SaveMatchFunctions"),
+		LambdaFunction: saveMatchFunction,
 	})
 
 	matchDS.CreateResolver(&awsappsync.BaseResolverProps{
-		FieldName: jsii.String("matches"),
+		FieldName: jsii.String("saveMatch"),
 		TypeName:  jsii.String("Query"),
-		RequestMappingTemplate: awsappsync.MappingTemplate_FromString(
-			jsii.String("{\n                    " +
-				"\"version\": \"2018-05-29\",\n" +
-				"\"operation\": \"Invoke\",\n" +
-				"\"payload\": $util.toJson($context.arguments)\n" +
-				"}")),
+	})
+
+	playerDS := awsappsync.NewLambdaDataSource(stack, jsii.String("CreatePlayerFunction"), &awsappsync.LambdaDataSourceProps{
+		Api:            graphqlApi,
+		Name:           jsii.String("CreatePlayerFunction"),
+		LambdaFunction: createPlayerFunction,
+	})
+
+	playerDS.CreateResolver(&awsappsync.BaseResolverProps{
+		FieldName: jsii.String("createPlayer"),
+		TypeName:  jsii.String("Query"),
 	})
 
 	return stack

@@ -29,17 +29,17 @@ func NewService(tableName, region string) *Service {
 	return &Service{table: table}
 }
 
-func (s Service) Create(player Player) (Player, error) {
+func (s Service) Create(player Player) error {
 	users, err := s.GetByEmail(player.Email)
 	if err != nil {
-		return Player{}, err
+		return err
 	}
 	if len(users) > 0 {
-		return player, errors.New("player with this email is already created")
+		return errors.New("player with this email already exist")
 	}
 
 	player.Id = CreateId()
-	return player, s.table.Put(player).Run()
+	return s.table.Put(player).Run()
 }
 
 func (s Service) AddMatch(user Player, matchId string) (Player, error) {

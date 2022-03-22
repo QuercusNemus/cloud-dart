@@ -1,4 +1,4 @@
-package main
+package delete
 
 import (
 	"cloud-dart/match"
@@ -23,7 +23,8 @@ func init() {
 }
 
 type MatchInput struct {
-	MatchId string
+	Match   match.Match `json:"Match"`
+	Players []string    `json:"Players"`
 }
 
 type Input struct {

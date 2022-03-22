@@ -1,4 +1,4 @@
-package main
+package save
 
 import (
 	"cloud-dart/match"
@@ -23,15 +23,16 @@ func init() {
 }
 
 type MatchInput struct {
-	MatchId string
+	Arguments struct {
+		Input struct {
+			Match   match.Match `json:"Match"`
+			Players []string    `json:"Players"`
+		} `json:"input"`
+	} `json:"arguments"`
 }
 
-type Input struct {
-	Input MatchInput `json:"input"`
-}
-
-func handler(ctx context.Context, input Input) (match.Match, error) {
-	return match.Match{}, nil
+func handler(ctx context.Context, request MatchInput) (match.Match, error) {
+	return matchService.Save(request.Arguments.Input.Match, request.Arguments.Input.Players)
 }
 
 func main() {

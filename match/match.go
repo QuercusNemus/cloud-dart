@@ -93,11 +93,13 @@ func (s Service) Save(match Match, players []string) (Match, error) {
 	return match, nil
 }
 
-//Get takes a Match ID and returns all entries in the table corresponding to that ID.
-func (s Service) Get(match Match) (Match, error) {
-	err := s.table.Get("match_id", match.MatchId).
-		Range("sort_key", dynamo.Equal, match.SortKey).
-		One(&match)
+/*//Get takes a Match ID and returns all entries in the table corresponding to that ID.
+func (s Service) Get(matchId string) (Match, error) {
+	match := Match{}
+
+	err := s.table.Get("match_id", matchId).
+		Range("sort_key", dynamo.Equal, matchId).
+		One(&Match{})
 
 	if err != nil {
 		return Match{}, err
@@ -124,7 +126,7 @@ func (s Service) GetByPlayerId(playerId string) (matches []MatchPlayer, err erro
 		return nil, err
 	}
 	return
-}
+}*/
 
 //CreateId returs a string of UUID V4
 func CreateId() (id string) {

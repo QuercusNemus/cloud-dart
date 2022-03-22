@@ -12,8 +12,18 @@ func init() {
 	playerService = player.NewService("Players", "eu-north-1")
 }
 
-func handler(ctx context.Context, player player.Player) (player.Player, error) {
-	return playerService.Create(player)
+type PlayerInput struct {
+	Arguments struct {
+		Player player.Player `json:"player"`
+	} `json:"arguments"`
+}
+
+func handler(ctx context.Context, request PlayerInput) (bool, error) {
+	err := playerService.Create(request.Arguments.Player)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func main() {
