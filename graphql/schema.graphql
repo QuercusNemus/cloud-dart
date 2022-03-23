@@ -4,7 +4,6 @@ schema {
 
 type Query {
     saveMatch(input: MatchInput): Match
-    get(matchId: String): Match
     createPlayer(player: Player): Boolean
 }
 
