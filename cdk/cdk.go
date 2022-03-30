@@ -1,121 +1,52 @@
 package main
 
 import (
-	"github.com/aws/aws-cdk-go/awscdk"
-	"github.com/aws/aws-cdk-go/awscdk/awsappsync"
-	"github.com/aws/aws-cdk-go/awscdk/awsdynamodb"
-	"github.com/aws/aws-cdk-go/awscdk/awslambda"
-	"github.com/aws/aws-cdk-go/awscdk/awslambdago"
-	"github.com/aws/aws-cdk-go/awscdk/awslogs"
-	"github.com/aws/constructs-go/constructs/v3"
-	"github.com/aws/jsii-runtime-go"
+	"github.com/aws/aws-cdk-go/awscdk/v2"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awsdynamodb"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslambda"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awslogs"
+	awslambdago "github.com/aws/aws-cdk-go/awscdklambdagoalpha/v2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/constructs-go/constructs/v10"
+)
+
+var (
+	GoBuildFlags = aws.StringSlice([]string{"-ldflags", "\"-s -w\"", "-trimpath"})
 )
 
 type CdkStackProps struct {
 	awscdk.StackProps
 }
 
-func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) awscdk.Stack {
+func NewStack(scope constructs.Construct, id string, props *CdkStackProps) awscdk.Stack {
 	var sprops awscdk.StackProps
 	if props != nil {
 		sprops = props.StackProps
 	}
+
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
-	matchTable := awsdynamodb.NewTable(stack, jsii.String("Matches"),
-		&awsdynamodb.TableProps{
-			PartitionKey: &awsdynamodb.Attribute{
-				Name: jsii.String("match_id"),
-				Type: "STRING",
-			},
-			SortKey: &awsdynamodb.Attribute{
-				Name: jsii.String("sort_key"),
-				Type: "STRING",
-			},
-			BillingMode:   "PAY_PER_REQUEST",
-			TableName:     jsii.String("Matches"),
-			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
-		})
-	matchTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
-		IndexName: jsii.String("player_id"),
+	table := awsdynamodb.NewTable(stack, aws.String("Table"), &awsdynamodb.TableProps{
 		PartitionKey: &awsdynamodb.Attribute{
-			Name: jsii.String("player_id"),
+			Name: aws.String("ID"),
 			Type: "STRING",
 		},
+		TableName:   aws.String("Table"),
+		BillingMode: "PAY_PER_REQUEST",
 	})
 
-	playersTable := awsdynamodb.NewTable(stack, jsii.String("Players"),
-		&awsdynamodb.TableProps{
-			PartitionKey: &awsdynamodb.Attribute{
-				Name: jsii.String("player_id"),
-				Type: "STRING",
-			},
-			SortKey: &awsdynamodb.Attribute{
-				Name: jsii.String("email"),
-				Type: "STRING",
-			},
-			BillingMode:   "PAY_PER_REQUEST",
-			TableName:     jsii.String("Players"),
-			RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
-		})
-	playersTable.AddGlobalSecondaryIndex(&awsdynamodb.GlobalSecondaryIndexProps{
-		IndexName: jsii.String("email-index"),
-		PartitionKey: &awsdynamodb.Attribute{
-			Name: jsii.String("email"),
-			Type: "STRING",
-		},
-		ProjectionType: awsdynamodb.ProjectionType_ALL,
-	})
-
-	createPlayerFunction := awslambdago.NewGoFunction(stack, jsii.String("CreatePlayer"), &awslambdago.GoFunctionProps{
-		Entry:        jsii.String("../player/lambda/create"),
-		FunctionName: jsii.String("CreatePlayer"),
-		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
+	function := awslambdago.NewGoFunction(stack, aws.String("GoFunction"), &awslambdago.GoFunctionProps{
 		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
-		LogRetention: awslogs.RetentionDays_ONE_MONTH,
-	})
-
-	saveMatchFunction := awslambdago.NewGoFunction(stack, jsii.String("SaveMatch"), &awslambdago.GoFunctionProps{
-		Entry:        jsii.String("../match/lambda/save"),
-		FunctionName: jsii.String("SaveMatch"),
-		Timeout:      awscdk.Duration_Seconds(jsii.Number(30)),
-		Runtime:      awslambda.Runtime_PROVIDED_AL2(),
+		Entry:        aws.String("../match/lambda"),
+		FunctionName: aws.String("SaveMatch"),
+		Timeout:      awscdk.Duration_Seconds(aws.Float64(30)),
 		LogRetention: awslogs.RetentionDays_ONE_MONTH,
 		Environment: &map[string]*string{
-			"DYNAMODB_AWS_REGION": matchTable.Env().Region,
-			"DYNAMODB_TABLE":      matchTable.TableName(),
+			"DYNAMODB_TABLE_NAME": table.TableName(),
 		},
 	})
 
-	playersTable.GrantFullAccess(createPlayerFunction)
-	matchTable.GrantFullAccess(saveMatchFunction)
-
-	graphqlApi := awsappsync.NewGraphqlApi(stack, jsii.String("CloudDart-API"), &awsappsync.GraphqlApiProps{
-		Name:   jsii.String("CloudDart-API"),
-		Schema: awsappsync.Schema_FromAsset(jsii.String("../graphql/schema.graphql")),
-	})
-
-	matchDS := awsappsync.NewLambdaDataSource(stack, jsii.String("SaveMatchFunctions"), &awsappsync.LambdaDataSourceProps{
-		Api:            graphqlApi,
-		Name:           jsii.String("SaveMatchFunctions"),
-		LambdaFunction: saveMatchFunction,
-	})
-
-	matchDS.CreateResolver(&awsappsync.BaseResolverProps{
-		FieldName: jsii.String("saveMatch"),
-		TypeName:  jsii.String("Query"),
-	})
-
-	playerDS := awsappsync.NewLambdaDataSource(stack, jsii.String("CreatePlayerFunction"), &awsappsync.LambdaDataSourceProps{
-		Api:            graphqlApi,
-		Name:           jsii.String("CreatePlayerFunction"),
-		LambdaFunction: createPlayerFunction,
-	})
-
-	playerDS.CreateResolver(&awsappsync.BaseResolverProps{
-		FieldName: jsii.String("createPlayer"),
-		TypeName:  jsii.String("Query"),
-	})
+	table.GrantFullAccess(function)
 
 	return stack
 }
@@ -123,7 +54,7 @@ func NewCdkStack(scope constructs.Construct, id string, props *CdkStackProps) aw
 func main() {
 	app := awscdk.NewApp(nil)
 
-	NewCdkStack(app, "CloudDart-ServerStack", &CdkStackProps{
+	NewStack(app, "CloudDart-Service", &CdkStackProps{
 		awscdk.StackProps{
 			Env: env(),
 		},
